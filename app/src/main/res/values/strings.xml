@@ -64,6 +64,8 @@
     <string name="nav_menu_controls_editor">Controls editor</string>
     <string name="nav_menu_gamepad_mapper">Gamepad mapper</string>
     <string name="nav_menu_manage_storage">Manage storage</string>
+
+    <string name="nav_menu_workshop">Workshop</string>
     <string name="control_element_delete">Delete element</string>
     <string name="control_element_input_type">Input type</string>
     <string name="control_element_stick_binding">Stick Binding</string>

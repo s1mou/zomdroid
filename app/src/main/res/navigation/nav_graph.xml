@@ -47,4 +47,9 @@
         android:label="@string/fragment_label_wiki">
     </fragment>
 
+    <fragment
+        android:id="@+id/workshop_fragment"
+        android:name="com.zomdroid.fragments.WorkshopFragment"
+        android:label="@string/nav_menu_workshop"
+        tools:layout="@layout/fragment_workshop" />
 </navigation>

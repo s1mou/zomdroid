@@ -26,5 +26,9 @@
         android:title="@string/nav_menu_manage_storage"
         android:icon="@drawable/mt_icon_folder"
         app:showAsAction="never"/>
-
+    <item
+        android:id="@+id/action_open_workshop_fragment"
+        android:title="@string/nav_menu_workshop"
+        android:icon="@drawable/mt_icon_folder_open"
+        app:showAsAction="never"/>
 </menu>

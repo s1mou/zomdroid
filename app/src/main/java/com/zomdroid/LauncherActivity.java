@@ -85,6 +85,9 @@ public class LauncherActivity extends AppCompatActivity {
             } else if (item.getItemId() == R.id.action_open_gamepad_mapper) {
                 navController.navigate(R.id.gamepad_mapper_fragment);
                 return true;
+            } else if (item.getItemId() == R.id.action_open_workshop_fragment) {
+                navController.navigate(R.id.workshop_fragment);
+                return true;
             }
             return NavigationUI.onNavDestinationSelected(item, navController)
                     || super.onOptionsItemSelected(item);
