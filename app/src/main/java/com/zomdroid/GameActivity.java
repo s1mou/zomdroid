@@ -4,8 +4,7 @@ import android.annotation.SuppressLint;
 import android.content.pm.ActivityInfo;
 import android.graphics.PixelFormat;
 import android.os.Bundle;
-import android.hardware.input.InputManager;
-import android.view.InputDevice;
+import com.zomdroid.input.GamepadManager;
 import android.system.ErrnoException;
 import android.util.Log;
 import android.view.GestureDetector;
@@ -28,8 +27,14 @@ import com.zomdroid.game.GameInstancesManager;
 
 import org.fmod.FMOD;
 
-
-public class GameActivity extends AppCompatActivity implements InputManager.InputDeviceListener {
+/**
+ * Main activity for the game. Handles UI, surface, and input.
+ *
+ * Gamepad support is integrated via GamepadManager, which detects gamepad hotplug events
+ * and routes all gamepad input (buttons, axes, dpad) to the native interface.
+ * The virtual controller UI is automatically hidden when a physical gamepad is connected.
+ */
+public class GameActivity extends AppCompatActivity implements GamepadManager.GamepadListener {
     public static final String EXTRA_GAME_INSTANCE_NAME = "com.zomdroid.GameActivity.EXTRA_GAME_INSTANCE_NAME";
     private static final String LOG_TAG = GameActivity.class.getName();
 
@@ -38,7 +43,11 @@ public class GameActivity extends AppCompatActivity implements InputManager.Inpu
     private static boolean isGameStarted = false;
     private GestureDetector gestureDetector;
 
-    private InputManager inputManager;
+    /**
+     * Handles all gamepad connection/disconnection and input events.
+     * Delegates to this activity via GamepadManager.GamepadListener.
+     */
+    private GamepadManager gamepadManager;
 
     @SuppressLint({"UnsafeDynamicallyLoadedCode", "ClickableViewAccessibility"})
     @Override
@@ -48,19 +57,9 @@ public class GameActivity extends AppCompatActivity implements InputManager.Inpu
         binding = ActivityGameBinding.inflate(getLayoutInflater());
         setContentView(binding.getRoot());
 
-        inputManager = (InputManager) getSystemService(INPUT_SERVICE);
-        inputManager.registerInputDeviceListener(this, null);
-
-        boolean gamepadFound = false;
-        int[] deviceIds = inputManager.getInputDeviceIds();
-        for (int id : deviceIds) {
-            InputDevice dev = inputManager.getInputDevice(id);
-            if (dev != null && isGamepadDevice(dev)) {
-                gamepadFound = true;
-                break;
-            }
-        }
-        if (gamepadFound) onGamepadConnected();
+        // Initialize and register GamepadManager for gamepad hotplug and input events
+        gamepadManager = new GamepadManager(this, this);
+        gamepadManager.register();
         getWindow().setDecorFitsSystemWindows(false);
         final WindowInsetsController controller = getWindow().getInsetsController();
         if (controller != null) {
@@ -222,142 +221,91 @@ public class GameActivity extends AppCompatActivity implements InputManager.Inpu
     @Override
     protected void onDestroy() {
         super.onDestroy();
-        if (inputManager != null) {
-            inputManager.unregisterInputDeviceListener(this);
+        // Unregister GamepadManager to avoid leaks
+        if (gamepadManager != null) {
+            gamepadManager.unregister();
         }
     }
 
-    private boolean isGamepadDevice(InputDevice device) {
-        int sources = device.getSources();
-        return ((sources & InputDevice.SOURCE_GAMEPAD) == InputDevice.SOURCE_GAMEPAD)
-                || ((sources & InputDevice.SOURCE_JOYSTICK) == InputDevice.SOURCE_JOYSTICK);
-    }
-
-    @Override
-    public void onInputDeviceAdded(int deviceId) {
-        InputDevice dev = inputManager.getInputDevice(deviceId);
-        if (dev != null && isGamepadDevice(dev)) {
-            onGamepadConnected();
-        }
-    }
-
-    @Override
-    public void onInputDeviceRemoved(int deviceId) {
-        boolean anyGamepad = false;
-        int[] deviceIds = inputManager.getInputDeviceIds();
-        for (int id : deviceIds) {
-            InputDevice dev = inputManager.getInputDevice(id);
-            if (dev != null && isGamepadDevice(dev)) {
-                anyGamepad = true;
-                break;
-            }
-        }
-        if (!anyGamepad) onGamepadDisconnected();
-    }
-
-    @Override
-    public void onInputDeviceChanged(int deviceId) {
-        //
-    }
-
+    /**
+     * Tracks whether a physical gamepad is currently connected.
+     * Used to control the visibility of the virtual controller UI.
+     */
     private boolean isGamepadConnected = false;
 
+
+    /**
+     * Intercept all key events and delegate to GamepadManager for gamepad input.
+     * Returns true if the event was handled as a gamepad event.
+     */
     @Override
     public boolean dispatchKeyEvent(android.view.KeyEvent event) {
-        if (isGamepadEvent(event)) {
-            handleGamepadKeyEvent(event);
+        if (gamepadManager != null && gamepadManager.handleKeyEvent(event)) {
             return true;
         }
         return super.dispatchKeyEvent(event);
     }
 
+    /**
+     * Intercept all generic motion events and delegate to GamepadManager for gamepad input.
+     * Returns true if the event was handled as a gamepad event.
+     */
     @Override
     public boolean dispatchGenericMotionEvent(MotionEvent event) {
-        if (isGamepadMotionEvent(event)) {
-            handleGamepadMotionEvent(event);
+        if (gamepadManager != null && gamepadManager.handleMotionEvent(event)) {
             return true;
         }
         return super.dispatchGenericMotionEvent(event);
     }
 
-    private boolean isGamepadEvent(android.view.KeyEvent event) {
-        int source = event.getSource();
-        return ((source & android.view.InputDevice.SOURCE_GAMEPAD) == android.view.InputDevice.SOURCE_GAMEPAD)
-                || ((source & android.view.InputDevice.SOURCE_JOYSTICK) == android.view.InputDevice.SOURCE_JOYSTICK);
-    }
+    // --- GamepadManager.GamepadListener implementation ---
 
-    private boolean isGamepadMotionEvent(MotionEvent event) {
-        int source = event.getSource();
-        return ((source & android.view.InputDevice.SOURCE_GAMEPAD) == android.view.InputDevice.SOURCE_GAMEPAD)
-                || ((source & android.view.InputDevice.SOURCE_JOYSTICK) == android.view.InputDevice.SOURCE_JOYSTICK);
-    }
-
-    private void handleGamepadKeyEvent(android.view.KeyEvent event) {
-        int keyCode = event.getKeyCode();
-        boolean isPressed = event.getAction() == android.view.KeyEvent.ACTION_DOWN;
-        int button = mapKeyCodeToGLFWButton(keyCode);
-        if (button >= 0) {
-            com.zomdroid.input.InputNativeInterface.sendJoystickButton(button, isPressed);
-        }
-    }
-
-    private void handleGamepadMotionEvent(MotionEvent event) {
-        // Sticks
-        float lx = event.getAxisValue(MotionEvent.AXIS_X);
-        float ly = event.getAxisValue(MotionEvent.AXIS_Y);
-        float rx = event.getAxisValue(MotionEvent.AXIS_Z);
-        float ry = event.getAxisValue(MotionEvent.AXIS_RZ);
-        com.zomdroid.input.InputNativeInterface.sendJoystickAxis(0, lx); // GLFWBinding.GAMEPAD_AXIS_LX.code
-        com.zomdroid.input.InputNativeInterface.sendJoystickAxis(1, ly); // GLFWBinding.GAMEPAD_AXIS_LY.code
-        com.zomdroid.input.InputNativeInterface.sendJoystickAxis(2, rx); // GLFWBinding.GAMEPAD_AXIS_RX.code
-        com.zomdroid.input.InputNativeInterface.sendJoystickAxis(3, ry); // GLFWBinding.GAMEPAD_AXIS_RY.code
-
-        // Trigger
-        float lt = event.getAxisValue(MotionEvent.AXIS_LTRIGGER);
-        float rt = event.getAxisValue(MotionEvent.AXIS_RTRIGGER);
-        com.zomdroid.input.InputNativeInterface.sendJoystickAxis(4, lt); // GLFWBinding.GAMEPAD_AXIS_LT.code
-        com.zomdroid.input.InputNativeInterface.sendJoystickAxis(5, rt); // GLFWBinding.GAMEPAD_AXIS_RT.code
-
-        // D-Pad
-        float hatX = event.getAxisValue(MotionEvent.AXIS_HAT_X);
-        float hatY = event.getAxisValue(MotionEvent.AXIS_HAT_Y);
-        char dpadState = 0;
-        if (hatY < -0.5f) dpadState |= 0x01; // up
-        if (hatY > 0.5f) dpadState |= 0x04; // down
-        if (hatX < -0.5f) dpadState |= 0x08; // left
-        if (hatX > 0.5f) dpadState |= 0x02; // right
-        com.zomdroid.input.InputNativeInterface.sendJoystickDpad(0, dpadState);
-    }
-
-    private int mapKeyCodeToGLFWButton(int keyCode) {
-        // Mapping Android keycodes to GLFWBinding button codes
-        switch (keyCode) {
-            case android.view.KeyEvent.KEYCODE_BUTTON_A: return 0; // A
-            case android.view.KeyEvent.KEYCODE_BUTTON_B: return 1; // B
-            case android.view.KeyEvent.KEYCODE_BUTTON_X: return 2; // X
-            case android.view.KeyEvent.KEYCODE_BUTTON_Y: return 3; // Y
-            case android.view.KeyEvent.KEYCODE_BUTTON_L1: return 4; // LB
-            case android.view.KeyEvent.KEYCODE_BUTTON_R1: return 5; // RB
-            case android.view.KeyEvent.KEYCODE_BUTTON_SELECT: return 6; // SELECT
-            case android.view.KeyEvent.KEYCODE_BUTTON_START: return 7; // BACK/START
-            case android.view.KeyEvent.KEYCODE_BUTTON_THUMBL: return 9; // LSTICK
-            case android.view.KeyEvent.KEYCODE_BUTTON_THUMBR: return 10; // RSTICK
-            case android.view.KeyEvent.KEYCODE_BUTTON_MODE: return 8; // GUIDE
-            default: return -1;
-        }
-    }
-
-    private void onGamepadConnected() {
+    /**
+     * Called when a physical gamepad is connected.
+     * Hides the virtual controller UI.
+     */
+    @Override
+    public void onGamepadConnected() {
         isGamepadConnected = true;
         if (binding.inputControlsV != null) {
             binding.inputControlsV.setVisibility(View.GONE);
         }
     }
 
-    private void onGamepadDisconnected() {
+    /**
+     * Called when all physical gamepads are disconnected.
+     * Shows the virtual controller UI.
+     */
+    @Override
+    public void onGamepadDisconnected() {
         isGamepadConnected = false;
         if (binding.inputControlsV != null) {
             binding.inputControlsV.setVisibility(View.VISIBLE);
         }
     }
+
+    /**
+     * Called for every gamepad button event. Forwards to native input interface.
+     */
+    @Override
+    public void onGamepadButton(int button, boolean pressed) {
+        InputNativeInterface.sendJoystickButton(button, pressed);
+    }
+
+    /**
+     * Called for every gamepad axis event. Forwards to native input interface.
+     */
+    @Override
+    public void onGamepadAxis(int axis, float value) {
+        InputNativeInterface.sendJoystickAxis(axis, value);
+    }
+
+    /**
+     * Called for every gamepad dpad event. Forwards to native input interface.
+     */
+    @Override
+    public void onGamepadDpad(int dpad, char state) {
+        InputNativeInterface.sendJoystickDpad(dpad, state);
+    }
+
 }
