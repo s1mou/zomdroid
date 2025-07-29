@@ -28,11 +28,9 @@ import com.zomdroid.game.GameInstancesManager;
 import org.fmod.FMOD;
 
 /**
- * Main activity for the game. Handles UI, surface, and input.
- *
- * Gamepad support is integrated via GamepadManager, which detects gamepad hotplug events
- * and routes all gamepad input (buttons, axes, dpad) to the native interface.
- * The virtual controller UI is automatically hidden when a physical gamepad is connected.
+ * Main game activity. Handles UI, surface, and input.
+ * Integrates GamepadManager for hotplug and routes all gamepad input to the native interface.
+ * Hides the virtual controller UI when a physical gamepad is connected.
  */
 public class GameActivity extends AppCompatActivity implements GamepadManager.GamepadListener {
     public static final String EXTRA_GAME_INSTANCE_NAME = "com.zomdroid.GameActivity.EXTRA_GAME_INSTANCE_NAME";
@@ -43,10 +41,7 @@ public class GameActivity extends AppCompatActivity implements GamepadManager.Ga
     private static boolean isGameStarted = false;
     private GestureDetector gestureDetector;
 
-    /**
-     * Handles all gamepad connection/disconnection and input events.
-     * Delegates to this activity via GamepadManager.GamepadListener.
-     */
+    // Handles all gamepad connection/disconnection and input events
     private GamepadManager gamepadManager;
 
     @SuppressLint({"UnsafeDynamicallyLoadedCode", "ClickableViewAccessibility"})
@@ -216,6 +211,7 @@ public class GameActivity extends AppCompatActivity implements GamepadManager.Ga
             }
         });
 
+        // Initial state: assume no gamepad connected until GamepadManager notifies otherwise
         isGamepadConnected = false;
     }
     @Override
@@ -227,17 +223,11 @@ public class GameActivity extends AppCompatActivity implements GamepadManager.Ga
         }
     }
 
-    /**
-     * Tracks whether a physical gamepad is currently connected.
-     * Used to control the visibility of the virtual controller UI.
-     */
+    // Tracks whether a physical gamepad is currently connected (for UI logic)
     private boolean isGamepadConnected = false;
 
 
-    /**
-     * Intercept all key events and delegate to GamepadManager for gamepad input.
-     * Returns true if the event was handled as a gamepad event.
-     */
+    // Intercept all key events and delegate to GamepadManager for gamepad input
     @Override
     public boolean dispatchKeyEvent(android.view.KeyEvent event) {
         if (gamepadManager != null && gamepadManager.handleKeyEvent(event)) {
@@ -246,10 +236,7 @@ public class GameActivity extends AppCompatActivity implements GamepadManager.Ga
         return super.dispatchKeyEvent(event);
     }
 
-    /**
-     * Intercept all generic motion events and delegate to GamepadManager for gamepad input.
-     * Returns true if the event was handled as a gamepad event.
-     */
+    // Intercept all generic motion events and delegate to GamepadManager for gamepad input
     @Override
     public boolean dispatchGenericMotionEvent(MotionEvent event) {
         if (gamepadManager != null && gamepadManager.handleMotionEvent(event)) {
@@ -257,13 +244,8 @@ public class GameActivity extends AppCompatActivity implements GamepadManager.Ga
         }
         return super.dispatchGenericMotionEvent(event);
     }
-
-    // --- GamepadManager.GamepadListener implementation ---
-
-    /**
-     * Called when a physical gamepad is connected.
-     * Hides the virtual controller UI.
-     */
+    
+    // Called when a physical gamepad is connected: hide the virtual controller UI
     @Override
     public void onGamepadConnected() {
         isGamepadConnected = true;
@@ -272,10 +254,7 @@ public class GameActivity extends AppCompatActivity implements GamepadManager.Ga
         }
     }
 
-    /**
-     * Called when all physical gamepads are disconnected.
-     * Shows the virtual controller UI.
-     */
+    // Called when all physical gamepads are disconnected: show the virtual controller UI
     @Override
     public void onGamepadDisconnected() {
         isGamepadConnected = false;
@@ -284,25 +263,19 @@ public class GameActivity extends AppCompatActivity implements GamepadManager.Ga
         }
     }
 
-    /**
-     * Called for every gamepad button event. Forwards to native input interface.
-     */
+    // Forward every gamepad button event to the native input interface
     @Override
     public void onGamepadButton(int button, boolean pressed) {
         InputNativeInterface.sendJoystickButton(button, pressed);
     }
 
-    /**
-     * Called for every gamepad axis event. Forwards to native input interface.
-     */
+    // Forward every gamepad axis event to the native input interface
     @Override
     public void onGamepadAxis(int axis, float value) {
         InputNativeInterface.sendJoystickAxis(axis, value);
     }
 
-    /**
-     * Called for every gamepad dpad event. Forwards to native input interface.
-     */
+    // Forward every gamepad dpad event to the native input interface
     @Override
     public void onGamepadDpad(int dpad, char state) {
         InputNativeInterface.sendJoystickDpad(dpad, state);

@@ -13,13 +13,12 @@ import android.view.MotionEvent;
  * Delegates gamepad events to a listener interface for integration with the app/game logic.
  */
 public class GamepadManager implements InputManager.InputDeviceListener {
+    // Android input manager for device events
     private final InputManager inputManager;
-    private boolean isGamepadConnected = false;
+    // Listener for gamepad events (delegated to activity or logic)
     private final GamepadListener listener;
 
-    /**
-     * Listener interface for gamepad events.
-     */
+    // Listener interface for gamepad events
     public interface GamepadListener {
         void onGamepadConnected();
         void onGamepadDisconnected();
@@ -28,44 +27,32 @@ public class GamepadManager implements InputManager.InputDeviceListener {
         void onGamepadDpad(int dpad, char state);
     }
 
-    /**
-     * Create a new GamepadManager.
-     * @param context Android context
-     * @param listener Listener for gamepad events
-     */
+    // Create a new GamepadManager
     public GamepadManager(Context context, GamepadListener listener) {
         this.inputManager = (InputManager) context.getSystemService(Context.INPUT_SERVICE);
         this.listener = listener;
     }
 
-    /**
-     * Register for gamepad device events and check for already connected gamepads.
-     */
+    // Register for gamepad device events and check for already connected gamepads
     public void register() {
         inputManager.registerInputDeviceListener(this, null);
         // Check on start if a gamepad is already connected
-        boolean gamepadFound = false;
         int[] deviceIds = inputManager.getInputDeviceIds();
         for (int id : deviceIds) {
             InputDevice dev = inputManager.getInputDevice(id);
             if (dev != null && isGamepadDevice(dev)) {
-                gamepadFound = true;
+                listener.onGamepadConnected();
                 break;
             }
         }
-        if (gamepadFound) {
-            isGamepadConnected = true;
-            listener.onGamepadConnected();
-        }
     }
 
-    /**
-     * Unregister from gamepad device events.
-     */
+    // Unregister from gamepad device events
     public void unregister() {
         inputManager.unregisterInputDeviceListener(this);
     }
 
+    // Returns true if the device is a gamepad or joystick
     private boolean isGamepadDevice(InputDevice device) {
         int sources = device.getSources();
         return ((sources & InputDevice.SOURCE_GAMEPAD) == InputDevice.SOURCE_GAMEPAD)
@@ -76,15 +63,14 @@ public class GamepadManager implements InputManager.InputDeviceListener {
     public void onInputDeviceAdded(int deviceId) {
         InputDevice dev = inputManager.getInputDevice(deviceId);
         if (dev != null && isGamepadDevice(dev)) {
-            isGamepadConnected = true;
             listener.onGamepadConnected();
         }
     }
 
     @Override
     public void onInputDeviceRemoved(int deviceId) {
-        boolean anyGamepad = false;
         int[] deviceIds = inputManager.getInputDeviceIds();
+        boolean anyGamepad = false;
         for (int id : deviceIds) {
             InputDevice dev = inputManager.getInputDevice(id);
             if (dev != null && isGamepadDevice(dev)) {
@@ -93,7 +79,6 @@ public class GamepadManager implements InputManager.InputDeviceListener {
             }
         }
         if (!anyGamepad) {
-            isGamepadConnected = false;
             listener.onGamepadDisconnected();
         }
     }
@@ -103,28 +88,21 @@ public class GamepadManager implements InputManager.InputDeviceListener {
         // Not used
     }
 
-    /**
-     * Checks if the given KeyEvent is from a gamepad.
-     */
+    // Returns true if the KeyEvent is from a gamepad
     public boolean isGamepadEvent(KeyEvent event) {
         int source = event.getSource();
         return ((source & InputDevice.SOURCE_GAMEPAD) == InputDevice.SOURCE_GAMEPAD)
                 || ((source & InputDevice.SOURCE_JOYSTICK) == InputDevice.SOURCE_JOYSTICK);
     }
 
-    /**
-     * Checks if the given MotionEvent is from a gamepad.
-     */
+    // Returns true if the MotionEvent is from a gamepad
     public boolean isGamepadMotionEvent(MotionEvent event) {
         int source = event.getSource();
         return ((source & InputDevice.SOURCE_GAMEPAD) == InputDevice.SOURCE_GAMEPAD)
                 || ((source & InputDevice.SOURCE_JOYSTICK) == InputDevice.SOURCE_JOYSTICK);
     }
 
-    /**
-     * Handles a KeyEvent, mapping it to a gamepad button if applicable.
-     * @return true if handled as gamepad event
-     */
+    // Handles a KeyEvent, mapping it to a gamepad button if applicable
     public boolean handleKeyEvent(KeyEvent event) {
         if (!isGamepadEvent(event)) return false;
         int keyCode = event.getKeyCode();
@@ -137,10 +115,7 @@ public class GamepadManager implements InputManager.InputDeviceListener {
         return false;
     }
 
-    /**
-     * Handles a MotionEvent, mapping axes and dpad to listener.
-     * @return true if handled as gamepad event
-     */
+    // Handles a MotionEvent, mapping axes and dpad to listener
     public boolean handleMotionEvent(MotionEvent event) {
         if (!isGamepadMotionEvent(event)) return false;
         // Sticks
@@ -169,9 +144,7 @@ public class GamepadManager implements InputManager.InputDeviceListener {
         return true;
     }
 
-    /**
-     * Maps Android keycodes to GLFW button codes.
-     */
+    // Maps Android keycodes to GLFW button codes
     private int mapKeyCodeToGLFWButton(int keyCode) {
         switch (keyCode) {
             case KeyEvent.KEYCODE_BUTTON_A: return 0; // A
