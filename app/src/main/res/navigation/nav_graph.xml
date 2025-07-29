@@ -22,6 +22,12 @@
     </fragment>
 
     <fragment
+        android:id="@+id/gamepad_mapper_fragment"
+        android:name="com.zomdroid.fragments.GamepadMapperFragment"
+        android:label="@string/nav_menu_gamepad_mapper"
+        tools:layout="@layout/fragment_gamepad_mapper" />
+
+    <fragment
         android:id="@+id/new_game_instance_fragment"
         android:name="com.zomdroid.fragments.NewGameInstanceFragment"
         android:label="@string/fragment_label_new_game_instance"

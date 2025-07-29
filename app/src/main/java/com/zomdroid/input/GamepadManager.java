@@ -9,16 +9,40 @@ import android.view.MotionEvent;
 
 
 /**
- * Handles gamepad connection, disconnection, and input event mapping for Android.
- * Delegates gamepad events to a listener interface for integration with the app/game logic.
+ * Manages gamepad connection and input mapping for Android.
  */
 public class GamepadManager implements InputManager.InputDeviceListener {
-    // Android input manager for device events
+    // Android input manager
     private final InputManager inputManager;
-    // Listener for gamepad events (delegated to activity or logic)
+    // Gamepad event listener
     private final GamepadListener listener;
 
-    // Listener interface for gamepad events
+    // Number of logical gamepad buttons (no D-Pad)
+    public static final int GAMEPAD_BUTTON_COUNT = 11; // 11, D-Pad not included
+
+    // Default mapping: [A, B, X, Y, LB, RB, SELECT, START, GUIDE, LSTICK, RSTICK]
+    private static final int[] DEFAULT_MAPPING = {
+        KeyEvent.KEYCODE_BUTTON_A,      // 0: A
+        KeyEvent.KEYCODE_BUTTON_B,      // 1: B
+        KeyEvent.KEYCODE_BUTTON_X,      // 2: X
+        KeyEvent.KEYCODE_BUTTON_Y,      // 3: Y
+        KeyEvent.KEYCODE_BUTTON_L1,     // 4: LB
+        KeyEvent.KEYCODE_BUTTON_R1,     // 5: RB
+        KeyEvent.KEYCODE_BUTTON_SELECT, // 6: SELECT
+        KeyEvent.KEYCODE_BUTTON_START,  // 7: START
+        KeyEvent.KEYCODE_BUTTON_MODE,   // 8: GUIDE
+        KeyEvent.KEYCODE_BUTTON_THUMBL, // 9: LSTICK
+        KeyEvent.KEYCODE_BUTTON_THUMBR  // 10: RSTICK
+    };
+
+    // Custom mapping
+    private static int[] customMapping = null;
+
+    // SharedPreferences keys
+    private static final String PREFS_NAME = "gamepad_prefs";
+    private static final String PREFS_KEY_MAPPING = "custom_gamepad_mapping";
+
+    // Listener for gamepad events
     public interface GamepadListener {
         void onGamepadConnected();
         void onGamepadDisconnected();
@@ -27,13 +51,67 @@ public class GamepadManager implements InputManager.InputDeviceListener {
         void onGamepadDpad(int dpad, char state);
     }
 
-    // Create a new GamepadManager
+    // Create GamepadManager
     public GamepadManager(Context context, GamepadListener listener) {
         this.inputManager = (InputManager) context.getSystemService(Context.INPUT_SERVICE);
         this.listener = listener;
     }
 
-    // Register for gamepad device events and check for already connected gamepads
+    // Set custom mapping, or use default if invalid
+    public static void setCustomMapping(int[] mapping, Context context) {
+        if (mapping != null && mapping.length == GAMEPAD_BUTTON_COUNT) {
+            customMapping = java.util.Arrays.copyOf(mapping, mapping.length);
+            saveCustomMapping(context);
+        } else {
+            customMapping = null;
+            clearCustomMapping(context);
+        }
+    }
+
+    // Get current mapping (custom or default)
+    public static int[] getCurrentMapping() {
+        return (customMapping != null) ? customMapping : DEFAULT_MAPPING;
+    }
+
+    // Load custom mapping from SharedPreferences
+    public static void loadCustomMapping(Context context) {
+        android.content.SharedPreferences prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE);
+        String csv = prefs.getString(PREFS_KEY_MAPPING, null);
+        if (csv != null) {
+            String[] parts = csv.split(",");
+            if (parts.length == GAMEPAD_BUTTON_COUNT) {
+                int[] loaded = new int[GAMEPAD_BUTTON_COUNT];
+                try {
+                    for (int i = 0; i < GAMEPAD_BUTTON_COUNT; i++) {
+                        loaded[i] = Integer.parseInt(parts[i]);
+                    }
+                    customMapping = loaded;
+                } catch (NumberFormatException e) {
+                    customMapping = null;
+                }
+            }
+        }
+    }
+
+    // Save custom mapping to SharedPreferences
+    private static void saveCustomMapping(Context context) {
+        if (customMapping == null) return;
+        StringBuilder sb = new StringBuilder();
+        for (int i = 0; i < customMapping.length; i++) {
+            sb.append(customMapping[i]);
+            if (i < customMapping.length - 1) sb.append(",");
+        }
+        context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+                .edit().putString(PREFS_KEY_MAPPING, sb.toString()).apply();
+    }
+
+    // Remove saved custom mapping from SharedPreferences
+    private static void clearCustomMapping(Context context) {
+        context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+                .edit().remove(PREFS_KEY_MAPPING).apply();
+    }
+
+    // Register for gamepad device events
     public void register() {
         inputManager.registerInputDeviceListener(this, null);
         // Check on start if a gamepad is already connected
@@ -52,7 +130,7 @@ public class GamepadManager implements InputManager.InputDeviceListener {
         inputManager.unregisterInputDeviceListener(this);
     }
 
-    // Returns true if the device is a gamepad or joystick
+    // True if InputDevice is a gamepad or joystick
     private boolean isGamepadDevice(InputDevice device) {
         int sources = device.getSources();
         return ((sources & InputDevice.SOURCE_GAMEPAD) == InputDevice.SOURCE_GAMEPAD)
@@ -88,21 +166,21 @@ public class GamepadManager implements InputManager.InputDeviceListener {
         // Not used
     }
 
-    // Returns true if the KeyEvent is from a gamepad
+    // True if KeyEvent is from a gamepad or joystick
     public boolean isGamepadEvent(KeyEvent event) {
         int source = event.getSource();
         return ((source & InputDevice.SOURCE_GAMEPAD) == InputDevice.SOURCE_GAMEPAD)
                 || ((source & InputDevice.SOURCE_JOYSTICK) == InputDevice.SOURCE_JOYSTICK);
     }
 
-    // Returns true if the MotionEvent is from a gamepad
+    // True if MotionEvent is from a gamepad or joystick
     public boolean isGamepadMotionEvent(MotionEvent event) {
         int source = event.getSource();
         return ((source & InputDevice.SOURCE_GAMEPAD) == InputDevice.SOURCE_GAMEPAD)
                 || ((source & InputDevice.SOURCE_JOYSTICK) == InputDevice.SOURCE_JOYSTICK);
     }
 
-    // Handles a KeyEvent, mapping it to a gamepad button if applicable
+    // Handle KeyEvent as gamepad button if possible
     public boolean handleKeyEvent(KeyEvent event) {
         if (!isGamepadEvent(event)) return false;
         int keyCode = event.getKeyCode();
@@ -115,7 +193,7 @@ public class GamepadManager implements InputManager.InputDeviceListener {
         return false;
     }
 
-    // Handles a MotionEvent, mapping axes and dpad to listener
+    // Handle MotionEvent: axes and D-Pad
     public boolean handleMotionEvent(MotionEvent event) {
         if (!isGamepadMotionEvent(event)) return false;
         // Sticks
@@ -144,21 +222,12 @@ public class GamepadManager implements InputManager.InputDeviceListener {
         return true;
     }
 
-    // Maps Android keycodes to GLFW button codes
+    // Map Android keycode to logical button index (0-10), or -1 if not found
     private int mapKeyCodeToGLFWButton(int keyCode) {
-        switch (keyCode) {
-            case KeyEvent.KEYCODE_BUTTON_A: return 0; // A
-            case KeyEvent.KEYCODE_BUTTON_B: return 1; // B
-            case KeyEvent.KEYCODE_BUTTON_X: return 2; // X
-            case KeyEvent.KEYCODE_BUTTON_Y: return 3; // Y
-            case KeyEvent.KEYCODE_BUTTON_L1: return 4; // LB
-            case KeyEvent.KEYCODE_BUTTON_R1: return 5; // RB
-            case KeyEvent.KEYCODE_BUTTON_SELECT: return 6; // SELECT
-            case KeyEvent.KEYCODE_BUTTON_START: return 7; // BACK/START
-            case KeyEvent.KEYCODE_BUTTON_THUMBL: return 9; // LSTICK
-            case KeyEvent.KEYCODE_BUTTON_THUMBR: return 10; // RSTICK
-            case KeyEvent.KEYCODE_BUTTON_MODE: return 8; // GUIDE
-            default: return -1;
+        int[] mapping = getCurrentMapping();
+        for (int i = 0; i < mapping.length; i++) {
+            if (mapping[i] == keyCode) return i;
         }
+        return -1;
     }
 }

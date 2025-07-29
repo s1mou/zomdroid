@@ -82,8 +82,11 @@ public class LauncherActivity extends AppCompatActivity {
                 Intent intent = new Intent(this, ControlsEditorActivity.class);
                 startActivity(intent);
                 return true;
+            } else if (item.getItemId() == R.id.action_open_gamepad_mapper) {
+                navController.navigate(R.id.gamepad_mapper_fragment);
+                return true;
             }
-             return NavigationUI.onNavDestinationSelected(item, navController)
+            return NavigationUI.onNavDestinationSelected(item, navController)
                     || super.onOptionsItemSelected(item);
         });
     }

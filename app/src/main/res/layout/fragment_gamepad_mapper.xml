@@ -1,0 +1,42 @@
+<?xml version="1.0" encoding="utf-8"?>
+<ScrollView xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent">
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="vertical"
+        android:padding="16dp">
+
+        <TextView
+            android:id="@+id/gamepad_mapper_instructions"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="@string/gamepad_mapper_instructions"
+            android:layout_marginTop="16dp" />
+
+        <TextView
+            android:id="@+id/gamepad_mapper_step_label"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:textAppearance="@style/TextAppearance.AppCompat.Medium"
+            android:layout_marginTop="24dp" />
+
+
+        <Button
+            android:id="@+id/gamepad_mapper_start_button"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="@string/gamepad_mapper_start"
+            android:layout_marginTop="32dp" />
+
+
+        <Button
+            android:id="@+id/gamepad_mapper_reset_button"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="@string/gamepad_mapper_reset"
+            android:layout_marginTop="8dp"
+            android:enabled="true" />
+    </LinearLayout>
+</ScrollView>
